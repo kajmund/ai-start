@@ -1,87 +1,147 @@
 # Backend — agent notes
 
-This is the FastAPI service for Document Copilot. Read [../AGENTS.md](../AGENTS.md) first — universal building rules live there. This file adds backend-specific conventions.
+Python + FastAPI service for all server-side and AI logic. Read [../AGENTS.md](../AGENTS.md) first.
+
+## Role
+
+The backend is the **only** place for:
+
+- OpenAI / LLM calls and embeddings
+- PydanticAI agents and tool execution
+- Supabase service-role access and DB writes
+- Auth token verification
+- Business rules, validation, and orchestration
+
+The frontend never does these. If you're about to add AI logic outside `backend/`, stop.
 
 ## Stack
 
 - Python 3.12+
 - FastAPI + uvicorn
 - Pydantic v2 + pydantic-settings
+- OpenAI SDK
 - `httpx` for outbound HTTP
-- `pytest` for tests
-- Supabase Python client (DB + auth)
-- SQLAlchemy models + Alembic migrations for database schema changes
-- OpenAI SDK for LLM & embeddings
-- Supabase `pgvector` for semantic search and Postgres full-text search for keyword retrieval. Hybrid search should run vector and full-text queries separately, then fuse ranked results in Python with Reciprocal Rank Fusion.
 - `structlog` for logging
-- `uv` for dependency + project management
+- `uv` for dependency management
+- `pytest` + `ruff` (dev)
 
-## Dependency policy
+Add when the project needs them (not by default):
 
-See universal policy in [../AGENTS.md](../AGENTS.md). Backend-specific:
+- **PydanticAI** — typed LLM agents and tool boundaries
+- **Supabase Python client** — DB + auth verification
+- **SQLAlchemy + Alembic** — Postgres schema and migrations
+- **pgvector** — semantic search columns
 
-- **Prefer stdlib:** `pathlib`, `datetime`, `uuid`, `enum`, `dataclasses`, `asyncio`, `collections`, `itertools`, `json`, `urllib`.
-- **Not OK without justification:** `python-dateutil`, `toolz`, `funcy`, `more-itertools`, small JSON/string micro-libs, "ergonomic" wrappers on top of declared SDKs.
-- Dev deps (test/lint/build) have a looser bar but still pick widely-used, low-footprint tools (`pytest`, `ruff`, `httpx`).
-
-## Layout (to be created during build)
+## Layout
 
 ```text
 backend/
-├── alembic/
-│   ├── env.py           # Imports app database metadata for autogenerate
-│   └── versions/        # Reviewed migration files
-├── alembic.ini
 ├── app/
-│   ├── main.py          # FastAPI entrypoint
-│   ├── config.py        # Pydantic settings — single source of truth for env
-│   ├── api/             # FastAPI routers (chat, ingest, auth)
-│   ├── auth/            # Supabase JWT verification + current user dependency
-│   ├── chat/            # turn orchestration, AI SDK message conversion, streaming
-│   ├── assistant/       # PydanticAI agent, deps, outputs, instructions
-│   ├── retrieval/       # pgvector/full-text queries, RRF fusion, source passage lookup
-│   ├── grounding/       # citation validation and answer grounding checks
-│   ├── database/        # SQLAlchemy models, Supabase client wrapper, typed query helpers
-│   └── prompts/         # prompt/instruction templates if not colocated with assistant
-├── ingest/              # one-off ingestion scripts (Markdown extraction, chunking, embedding, Supabase writes)
+│   ├── main.py              # FastAPI app, CORS, router includes
+│   ├── config.py            # Pydantic settings — ONLY env entry point
+│   ├── api/                 # Route handlers — thin, one file per domain
+│   │   ├── health.py
+│   │   └── <domain>.py      # e.g. chat.py, classify.py, jobs.py
+│   ├── auth/                # Supabase JWT verify + get_current_user (if needed)
+│   ├── database/            # models.py, supabase.py, query helpers (if needed)
+│   ├── llm/                 # OpenAI client wrapper, shared prompt utilities
+│   └── <domain>/            # project-specific logic — see table below
+├── scripts/                 # CLI / batch jobs — never imported by app/
+├── alembic/                 # migrations (when using Postgres)
 ├── tests/
+│   └── <domain>/            # mirrors app/<domain>/ structure
 └── pyproject.toml
 ```
 
-## Code style (backend-specific)
+### Domain module examples (create only what the brief requires)
 
-- **Type hints on public functions and module-level things.** Don't annotate every local.
-- **Async by default in request-path code.** Don't run blocking I/O on the event loop. Tempfile + small synchronous file reads are OK (they're fast); network calls must be async.
-- **Use `async def` for all route handlers** and any I/O service function.
-- **Validate at boundaries only.** HTTP input is validated by Pydantic models. External API responses are validated when parsed. Internal callers are trusted.
+| Module | Use when |
+| ------ | -------- |
+| `chat/` | Streaming chat turns, message persistence |
+| `assistant/` | PydanticAI agent definition, deps, typed outputs |
+| `agents/` | Multi-step agents with tools (non-chat) |
+| `tools/` | Agent tool implementations |
+| `retrieval/` | pgvector + full-text search, RRF fusion |
+| `grounding/` | Citation validation |
+| `extraction/` | Parse documents, structured output |
+| `classification/` | Label / categorize inputs |
+| `processing/` | Batch pipelines, job state |
+| `jobs/` | Background job orchestration |
+
+Each domain module should contain plain functions and small classes — no FastAPI imports in core logic (keeps it testable).
+
+## API routes (`app/api/`)
+
+- One router file per domain area.
+- Handlers: parse request → call domain function → return response.
+- Register routers in `main.py`.
+- Use Pydantic models for request/response bodies.
+- Auth dependency on user-facing routes: `Depends(get_current_user)`.
+
+```python
+# app/api/classify.py — example shape
+router = APIRouter(prefix="/classify", tags=["classify"])
+
+@router.post("")
+async def classify(body: ClassifyRequest, user: User = Depends(get_current_user)):
+    return await classification_service.run(body, user_id=user.id)
+```
+
+## Scripts (`backend/scripts/`)
+
+For one-off and batch work:
+
+- Corpus ingestion, embedding backfill, eval runs, seed data
+- Run: `uv run python scripts/ingest.py` from `backend/`
+- May import from `app.*` but `app/` must never import from `scripts/`
 
 ## Configuration
 
-- `app.config.settings` is the single source of truth. Import settings where needed; never call `os.getenv` in app code, never call `load_dotenv`.
-- If a third-party SDK reads `os.environ` directly, add the mirror in `config.py` — don't sprinkle `setdefault` elsewhere.
-- Fail fast on startup when required env vars are missing.
+- `app.config.settings` is the single source of truth.
+- Never call `os.getenv` or `load_dotenv` in app code.
+- Fail fast on startup when required vars are missing.
+
+Typical vars (add only what you use):
+
+```text
+SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY  # if using Supabase
+DATABASE_URL                                                 # if using Alembic
+OPENAI_API_KEY, OPENAI_MODEL                                 # LLM
+ALLOWED_ORIGINS                                              # CORS
+```
 
 ## Database migrations
 
-- Alembic is the source of truth for schema changes. Do not change production tables manually in the Supabase dashboard.
-- SQLAlchemy models describe normal tables and columns. Alembic autogenerate creates candidate migrations, but every generated migration must be reviewed before applying.
-- Supabase/Postgres-specific features belong in explicit migration operations: `create extension vector`, generated `tsvector` columns, HNSW/GIN indexes, RLS enablement, and RLS policies.
-- Alembic must use the direct/session database connection, not the Supabase transaction pooler URL.
-- Run migrations from `backend/` with `uv run alembic upgrade head`.
+When using Postgres:
+
+- Alembic owns schema — never edit production tables in the Supabase dashboard.
+- Models in `app/database/models.py`; migrations in `alembic/versions/`.
+- Use the **direct** Supabase connection URL, not the pooler, for migrations.
+- Review every autogenerated migration; add explicit ops for `vector`, `tsvector`, RLS.
+- Run: `uv run alembic upgrade head` from `backend/`.
 
 ## Tests
 
-- **Prefer unit over integration.** Mock at the service boundary.
-- Fast suite (`pytest -m "not integration"`) must stay green and hit no network / no DB.
-- Integration tests go behind `@pytest.mark.integration` and may require live OpenAI / Supabase credentials.
-- Tests live next to what they test (`retrieval/retriever.py` → `tests/retrieval/test_retriever.py`).
-- Required test coverage: ingestion logic, retrieval, citation extraction, grounding enforcement.
+- **Unit tests preferred.** Mock at service boundaries.
+- Fast suite: `pytest -m "not integration"` — no network, no DB.
+- Integration tests: `@pytest.mark.integration` with live credentials.
+- Mirror module structure: `app/retrieval/retriever.py` → `tests/retrieval/test_retriever.py`.
+- Test domain logic without invoking the LLM where possible; test grounding/contracts separately from generation quality.
 
-## Anti-patterns (rejected)
+## Code style
 
-- `os.getenv` / `load_dotenv` in modules.
-- Wrapping FastAPI responses in custom envelope classes.
-- Over-catching `Exception` just to log and re-raise; let it propagate.
-- Shared state through globals instead of FastAPI `app.state` or DI.
-- Silent fallbacks that hide real config errors.
-- Mocking the LLM in unit tests without also testing the grounding contract — the prompt is the product.
+- Type hints on public functions.
+- `async def` for route handlers and I/O-bound service functions.
+- Validate at boundaries only — trust internal callers.
+- No custom response envelope wrappers.
+- No globals for shared state — use FastAPI `app.state` or DI.
+
+## Anti-patterns
+
+- LLM calls outside `backend/app/`
+- Business logic inside route handlers (beyond orchestration)
+- `os.getenv` / `load_dotenv` in modules
+- One-off scripts inside `app/`
+- Over-catching `Exception` to log and re-raise
+- Silent config fallbacks that hide missing env vars
+- Adding SQLAlchemy/pgvector when the project has no database needs

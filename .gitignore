@@ -26,6 +26,10 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Data / artifacts (downloaded corpus files are large, never check in)
+/data/corpus/*
+!/data/corpus/.gitkeep
+/data/examples/sec-edgar/downloads/*
+!/data/examples/sec-edgar/downloads/.gitkeep
 /data/downloads/*
 !/data/downloads/.gitkeep
 *.parquet
