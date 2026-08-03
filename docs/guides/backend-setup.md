@@ -76,7 +76,7 @@ For Jupyter, install and select the backend kernel:
 
 ```bash
 cd backend
-uv run python -m ipykernel install --user --name document-copilot-backend --display-name "Document Copilot Backend"
+uv run python -m ipykernel install --user --name ai-start-backend --display-name "AI Start Backend"
 ```
 
 Then notebooks can import backend modules:
@@ -85,10 +85,10 @@ Then notebooks can import backend modules:
 from app.config import settings
 ```
 
-## Sample SEC data
+## Sample corpus data
 
-From the repo root (stdlib-only script, no backend env needed):
+For a quick sample corpus, see the optional SEC EDGAR downloader in `data/examples/sec-edgar/`. From the repo root:
 
 ```bash
-uv run data/download.py
+uv run data/examples/sec-edgar/download.py
 ```

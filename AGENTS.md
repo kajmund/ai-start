@@ -18,10 +18,10 @@ Stack is locked unless explicitly changed. Don't propose alternatives without a 
 ## Repo layout
 
 ```text
-document-copilot/
+your-project/
 ├── AGENTS.md           # this file
 ├── README.md
-├── data/               # local corpus + download script (payloads gitignored)
+├── data/               # local corpus + optional download examples (payloads gitignored)
 ├── docs/               # specs, briefs, design notes
 ├── backend/            # FastAPI service (see backend/AGENTS.md)
 └── frontend/           # React SPA (see frontend/AGENTS.md)
