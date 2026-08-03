@@ -1,23 +1,39 @@
 # Data
 
-Local data artifacts for development live here.
+Local data for development — corpora, fixtures, eval sets, and sample download scripts.
 
-- `corpus/` holds your source documents for ingestion (create this when you add files).
-- `examples/` holds optional reference download scripts for sample corpora.
-- Downloaded payloads are gitignored because corpora can get large.
+- `corpus/` — your source files (documents, CSVs, JSON fixtures)
+- `examples/` — optional reference scripts for fetching sample data
+- Large payloads are **gitignored** — never commit production data
 
-## Add your corpus
+## Usage by project type
 
-Drop source files into `data/corpus/` or write a download script under `data/examples/`. Your ingestion pipeline reads from here during development.
+| Project type | What goes in `data/` |
+| ------------ | -------------------- |
+| RAG chat | Source documents for ingestion (`corpus/`) |
+| Classification | Labeled examples for eval (`corpus/labels.csv`) |
+| Extraction | Sample PDFs/HTML with expected output (`corpus/expected/`) |
+| Batch processing | Input files queued for offline jobs |
+| API-only | Fixtures for local integration tests |
 
-Supported formats depend on your ingestion implementation — Markdown, HTML, PDF, and plain text are common starting points.
+## Add your data
+
+Drop files into `data/corpus/` or write a fetch script under `data/examples/`:
+
+```bash
+uv run data/examples/<your-script>.py
+```
+
+Ingestion scripts that write to Supabase belong in `backend/scripts/` — they import from `app.*` and run against your configured database.
 
 ## Optional: SEC EDGAR sample
 
-The template includes an example downloader for SEC 10-K filings in `data/examples/sec-edgar/`. Edit the params at the top of the script, then run:
+Reference downloader for SEC 10-K filings — useful for testing RAG ingestion:
 
 ```bash
 uv run data/examples/sec-edgar/download.py
 ```
 
-This is a reference implementation, not a requirement. Replace it with scripts that fetch your own document sources.
+Edit params at the top of the script (especially `USER_AGENT`). Downloads land in `data/examples/sec-edgar/downloads/`.
+
+This is an example, not a requirement. Replace with scripts for your own data sources.

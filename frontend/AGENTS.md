@@ -1,90 +1,141 @@
 # Frontend — agent notes
 
-This is the React SPA for this AI chat app. Read [../AGENTS.md](../AGENTS.md) first — universal building rules live there. This file adds frontend-specific conventions.
+Vite + React SPA for browser UI. Read [../AGENTS.md](../AGENTS.md) first.
+
+## Role
+
+The frontend handles **user interaction only**:
+
+- Render pages and components
+- Manage local UI state
+- Hold the Supabase browser session (when auth is needed)
+- Call the backend API with the user's JWT
+
+It does **not** run AI, touch OpenAI, perform retrieval, or use privileged credentials.
+
+Skip building frontend pages entirely if the project is API-only (see `docs/project-brief.md`).
 
 ## Stack
 
-- **Plain React SPA** (Vite + TypeScript, strict). **Not Next.js** — do not suggest Next, SSR, server components, or file-based routing.
-- **Tailwind CSS** for styling. No CSS modules, styled-components, Emotion, or `.module.css` files for component styles. Global theme tokens live in `src/index.css`.
-- **shadcn/ui** for UI primitives. Add components with `pnpm dlx shadcn@latest add <name>` — don't hand-roll what shadcn already ships.
-- **React Router** for routing.
-- **`@supabase/supabase-js`** for auth (email only — no Google sign-in, no SSO providers).
+- **Vite + React + TypeScript** (strict). **Not Next.js** — no SSR, server components, or file-based routing.
+- **Tailwind CSS** for styling — classes inline, no CSS modules or styled-components.
+- **shadcn/ui** for UI primitives — add via `pnpm dlx shadcn@latest add <name>`.
+- **React Router** for client-side routing.
+- **`@supabase/supabase-js`** for browser auth (email only unless brief says otherwise).
 
-## Package manager
+Add when the project needs them:
 
-**`pnpm` only.** Do not use `npm install` or `yarn add`. The lockfile is `pnpm-lock.yaml`. If you see `package-lock.json` or `yarn.lock` appear, that's a bug — delete it.
+- **Vercel AI SDK** — chat streaming UI (RAG chat projects)
+- Other UI libs only with justification in the commit message
 
-**Minimum release age: 7 days.** Configured via `.npmrc` (`minimum-release-age=10080` minutes). pnpm will refuse to install any package version published less than 7 days ago. This defends against typosquat / compromised-release attacks where a malicious version of a popular package goes live and gets pulled within hours.
-
-If a fresh package is genuinely required (e.g. urgent security fix in a dep we already use), override per-install and justify in the commit message — don't lower the global threshold.
-
-## Dependency policy
-
-See universal policy in [../AGENTS.md](../AGENTS.md). Frontend-specific:
-
-- **HTTP:** use the native `fetch` API through a thin client in `src/lib/http.ts` and the `api` singleton in `src/lib/api.ts`. **No axios, ky, got, superagent, redaxios.**
-- **Dates:** use native `Date` and `Intl.DateTimeFormat`. No moment, dayjs, date-fns unless genuinely needed.
-- **Utilities:** use native `Array` / `Object` / `Map` methods. No lodash, ramda.
-- **State:** `useState` / `useReducer` / `useContext` first. Only reach for external state libraries when the pain is real.
-- **Forms:** native `<form>` + `FormData` first.
-- **Validation:** only add a schema library when we actually need runtime validation at boundaries.
-- **UI components:** shadcn primitives via `pnpm dlx shadcn@latest add <name>`. Don't hand-roll what shadcn already ships.
-
-Before adding a package, check:
-
-1. Is there a native browser or TS/JS API that does this?
-2. Does shadcn/ui already cover it?
-3. Is it small, well-maintained, and worth the maintenance cost?
-
-If yes to (3), add it — but flag the decision in the commit message.
-
-## Layout (to be created during build)
+## Layout
 
 ```text
 frontend/
 ├── src/
-│   ├── components/        # App components. shadcn primitives under components/ui/
-│   ├── lib/               # Framework-agnostic helpers (http, api, auth, supabase, env)
-│   ├── pages/             # Route-level components
-│   ├── App.tsx            # Router
-│   ├── main.tsx
-│   └── index.css          # Tailwind directives + global theme tokens
+│   ├── components/           # reusable UI
+│   │   └── ui/               # shadcn primitives (generated)
+│   ├── lib/                  # no UI — framework-agnostic helpers
+│   │   ├── env.ts            # ONLY place that reads import.meta.env
+│   │   ├── supabase.ts       # browser Supabase client
+│   │   ├── http.ts           # fetch wrapper, timeouts, ApiError
+│   │   └── api.ts            # typed backend API calls
+│   ├── pages/                # one file per route / screen
+│   │   ├── Home.tsx
+│   │   └── <Feature>/        # group related pages if needed
+│   ├── App.tsx               # router definition
+│   ├── main.tsx              # entrypoint
+│   └── index.css             # Tailwind directives + theme tokens
 ├── index.html
 ├── vite.config.ts
 ├── tsconfig.json
 └── package.json
 ```
 
-Keep imports consistent with the `@/*` alias (e.g. `@/lib/api`, `@/components/ui/button`).
+### Where to put UI code
 
-## Code style (frontend-specific)
+| UI element | Location |
+| ---------- | -------- |
+| Full screen / route | `src/pages/<Name>.tsx` |
+| Reusable widget | `src/components/<Name>.tsx` |
+| shadcn button, dialog, etc. | `src/components/ui/` (via CLI) |
+| Backend API call | `src/lib/api.ts` |
+| Auth/session helper | `src/lib/supabase.ts` |
 
-- **TypeScript strict.** No `any` unless there's no alternative; prefer `unknown` and narrow.
-- **Small, composable functions and components** over clever abstractions. Three similar lines > a premature generic.
-- **One component = one file.** Components stay small enough to fit on one screen.
-- **Tailwind classes inline.** No CSS modules, styled-components, Emotion, or `.module.css` for component styles. Global tokens live in `src/index.css`.
+Do not create `src/services/`, `src/hooks/` folders preemptively — add when a pattern repeats three times.
 
-## Configuration
+## Package manager
 
-- All env reads go through a single `src/lib/env.ts` module that validates required vars at boot. Never read `import.meta.env.X` directly in components.
-- Env vars are prefixed `VITE_` (Vite convention). Anything not prefixed is not exposed to the client.
+**pnpm only.** Lockfile: `pnpm-lock.yaml`. Delete any `package-lock.json` or `yarn.lock` that appear.
+
+**Minimum release age: 7 days** (`.npmrc`). Override per-install only with commit justification.
 
 ## Backend integration
 
-- Talks to a separate Python backend over JSON. URL comes from `VITE_API_BASE_URL`.
-- Always use `api.get/post/put/patch/delete` from `@/lib/api` — it handles base URL, JSON, Supabase bearer token, timeouts, and typed `ApiError`s (including the `isNetworkError` flag that distinguishes CORS/network from HTTP errors).
-- Auth is Supabase email. The bearer token is injected automatically via the `api` client; never thread tokens through component props.
+- Base URL from `VITE_API_BASE_URL` via `lib/env.ts`.
+- All backend calls through `api` from `@/lib/api` — handles JSON, bearer token, timeouts, typed errors.
+- Never pass auth tokens through component props — the api client reads the session.
+- Never call OpenAI or third-party AI APIs directly from the browser.
+
+```typescript
+// lib/api.ts — conceptual shape
+export const api = {
+  get: <T>(path: string) => request<T>("GET", path),
+  post: <T>(path: string, body: unknown) => request<T>("POST", path, body),
+  // ...
+};
+```
+
+## Configuration
+
+- All env reads in `src/lib/env.ts` — validate required vars at boot.
+- Vars prefixed `VITE_` only. Never expose secrets to the client.
+
+Typical vars:
+
+```text
+VITE_API_BASE_URL
+VITE_SUPABASE_URL          # if using auth
+VITE_SUPABASE_ANON_KEY     # if using auth
+```
+
+## Page patterns by project type
+
+| Project type | Typical pages |
+| ------------ | ------------- |
+| RAG chat | `Chat`, `ThreadList`, login |
+| Agent dashboard | `Dashboard`, `RunDetail`, settings |
+| Classification UI | `Upload`, `Results`, admin |
+| Batch processor | `JobList`, `JobDetail`, status view |
+| Minimal API wrapper | `Home` + one feature page |
+
+See [../docs/patterns/](../docs/patterns/) for reference UI flows.
+
+## Code style
+
+- TypeScript strict — no `any`; prefer `unknown` and narrow.
+- One component per file, small enough to read on one screen.
+- Tailwind classes inline — global tokens in `index.css` only.
+- `useState` / `useReducer` / `useContext` first for state.
 
 ## Testing
 
-**No frontend tests.** Do not write `*.test.ts` / `*.test.tsx` files or introduce a test runner. We verify the frontend manually in the browser plus `pnpm tsc --noEmit` and `pnpm lint`. If you find yourself reaching for vitest, Playwright, or Cypress — stop. That's not what this project does. Correctness for shared logic comes from keeping it simple and well-typed, not from a test suite.
+**No frontend tests.** Verify with:
 
-## Anti-patterns (rejected)
+```bash
+pnpm tsc --noEmit
+pnpm lint
+```
 
-- Reading `import.meta.env.X` directly outside `lib/env.ts`.
-- Importing an HTTP library when `fetch` would do.
-- Mixing client state libraries (Zustand + Jotai + Redux) for one project.
-- `any` annotations to silence the type-checker.
-- Custom CSS files / styled-components alongside Tailwind.
-- Re-implementing a shadcn primitive by hand.
-- Reaching for Next.js, SSR, or any framework that requires a Node server in front of the SPA.
+Plus manual browser checks. Do not add vitest, Playwright, or Cypress unless the user explicitly changes this policy.
+
+## Anti-patterns
+
+- OpenAI / LLM calls from React components
+- Reading `import.meta.env` outside `lib/env.ts`
+- HTTP libraries (axios, ky) when `fetch` suffices
+- Next.js, SSR, or a Node server in front of the SPA
+- Custom CSS files or styled-components alongside Tailwind
+- Hand-rolling shadcn primitives
+- Mixing multiple state libraries (Zustand + Jotai + Redux)
+- Backend logic or DB access in the frontend

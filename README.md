@@ -1,32 +1,44 @@
 # AI Start
 
-A starter template for building grounded AI chat apps: React frontend, FastAPI backend, Supabase Postgres with hybrid retrieval (`pgvector` + full-text search), and OpenAI for generation and embeddings.
+A full-stack starter template for AI-powered web applications — chatbots, agents, classification APIs, extraction pipelines, dashboards, and more.
 
-Use this repo as a scaffold — not a finished product. `backend/` and `frontend/` are empty shells with conventions and setup guides. Fill in your product brief, add your corpus, then build.
+Use this repo as a scaffold. `backend/` and `frontend/` are empty shells with conventions, agent instructions, and setup guides. Define your product in the brief, then build only what you need.
 
 ## What you get
 
 | Layer | Choice |
 | ----- | ------ |
-| Backend | Python + FastAPI |
-| Frontend | Vite + React SPA + TypeScript |
-| Database | Supabase Postgres (users, chats, documents, chunks) |
-| Migrations | SQLAlchemy models + Alembic |
-| Retrieval | Supabase `pgvector` + Postgres full-text search |
+| Backend | Python + FastAPI — all AI logic lives here |
+| Frontend | Vite + React SPA + TypeScript — when you need a UI |
+| Database | Supabase Postgres — when you need durable state |
+| Migrations | SQLAlchemy + Alembic |
+| Vector search | Supabase `pgvector` — when you need semantic retrieval |
 | Auth | Supabase Auth (email) |
 | Hosting | Railway (backend + frontend services) |
 | LLM + embeddings | OpenAI |
 
+## Supported project types
+
+| Type | Backend modules | Frontend |
+| ---- | --------------- | -------- |
+| Grounded RAG chat | `chat/`, `retrieval/`, `assistant/` | Chat UI |
+| AI agent with tools | `agents/`, `tools/` | Dashboard or API-only |
+| Classification / extraction | `extraction/`, `classification/` | Upload + results |
+| Batch processing | `processing/`, `scripts/` | Optional job status UI |
+| API-only MVP | `api/`, `llm/` | Skip frontend |
+
+See [docs/patterns/](docs/patterns/) for detailed reference architectures.
+
 ## Quick start
 
-1. **Use this template** — click "Use this template" on GitHub, or clone and push to your own repo.
-2. **Define your product** — copy and fill in [docs/project-brief.md](docs/project-brief.md).
-3. **Read the architecture** — [docs/architecture.md](docs/architecture.md) describes the target RAG chat design.
-4. **Set up services** — follow the guides in order:
+1. **Use this template** — "Use this template" on GitHub, or clone to your own repo.
+2. **Define your product** — fill in [docs/project-brief.md](docs/project-brief.md).
+3. **Read agent instructions** — [AGENTS.md](AGENTS.md) tells coding agents exactly what to do and where code goes.
+4. **Set up services** — follow the guides:
    - [Supabase](docs/guides/supabase-setup.md)
    - [Backend](docs/guides/backend-setup.md)
-   - [Frontend](docs/guides/frontend-setup.md)
-5. **Add your corpus** — put source files in `data/` (see [data/README.md](data/README.md)). An optional SEC EDGAR example lives in [data/examples/sec-edgar/](data/examples/sec-edgar/).
+   - [Frontend](docs/guides/frontend-setup.md) (skip if API-only)
+5. **Add local data** — [data/](data/README.md) for corpus, fixtures, or sample download scripts.
 
 Full walkthrough: [docs/getting-started.md](docs/getting-started.md)
 
@@ -34,28 +46,39 @@ Full walkthrough: [docs/getting-started.md](docs/getting-started.md)
 
 ```text
 your-project/
-├── AGENTS.md              # agent instructions (read first)
-├── README.md              # this file
-├── data/                  # local corpus + optional download examples
-├── docs/
-│   ├── architecture.md    # target system design
-│   ├── project-brief.md   # fill-in product brief template
-│   └── guides/            # setup instructions
-├── backend/               # FastAPI service (scaffold only)
-└── frontend/              # React SPA (scaffold only)
+├── AGENTS.md              # agent playbook — read first
+├── README.md
+├── backend/               # FastAPI — ALL server + AI code
+│   ├── app/               # request-path application code
+│   └── scripts/           # CLI / batch jobs
+├── frontend/              # React SPA — UI only (optional)
+│   └── src/
+├── data/                  # local dev inputs (payloads gitignored)
+└── docs/
+    ├── project-brief.md   # your product definition
+    ├── architecture.md    # system boundaries
+    ├── patterns/          # optional reference designs
+    └── guides/            # setup instructions
 ```
 
 ## Prerequisites
 
-| Tool | Version | Used for | Install |
-| ---- | ------- | -------- | ------- |
-| [Python](https://www.python.org/downloads/) | 3.12+ | Backend runtime | OS package manager or python.org |
-| [uv](https://docs.astral.sh/uv/getting-started/installation/) | latest | Backend deps + data scripts | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| [Node.js](https://nodejs.org/) | 20+ (LTS) | Frontend toolchain | nodejs.org or `nvm install --lts` |
-| [pnpm](https://pnpm.io/installation) | latest | Frontend package manager | `corepack enable && corepack prepare pnpm@latest --activate` |
+| Tool | Version | Used for |
+| ---- | ------- | -------- |
+| [Python](https://www.python.org/downloads/) | 3.12+ | Backend |
+| [uv](https://docs.astral.sh/uv/getting-started/installation/) | latest | Backend deps + scripts |
+| [Node.js](https://nodejs.org/) | 20+ | Frontend (if needed) |
+| [pnpm](https://pnpm.io/installation) | latest | Frontend packages |
 
-You also need accounts/keys for external services once the app is wired up. Start with [docs/guides/supabase-setup.md](docs/guides/supabase-setup.md), then create an [OpenAI API key](https://platform.openai.com/api-keys) when the LLM layer is wired up.
+External services: [Supabase](docs/guides/supabase-setup.md) account, [OpenAI API key](https://platform.openai.com/api-keys) when wiring up the LLM layer.
 
 ## For AI coding agents
 
-Read [AGENTS.md](AGENTS.md) before touching code. Stack, dependency policy, and code style are locked there. Service-specific notes live in [backend/AGENTS.md](backend/AGENTS.md) and [frontend/AGENTS.md](frontend/AGENTS.md).
+[AGENTS.md](AGENTS.md) is the source of truth:
+
+- Where backend and frontend code must go
+- What agents must and must not do
+- How to pick modules for your project type
+- Stack, dependency policy, and code style
+
+Service-specific rules: [backend/AGENTS.md](backend/AGENTS.md), [frontend/AGENTS.md](frontend/AGENTS.md).

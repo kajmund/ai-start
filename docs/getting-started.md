@@ -1,10 +1,10 @@
 # Getting started
 
-This guide walks you from a fresh template clone to a running local dev environment.
+From template clone to running local dev environment.
 
 ## 1. Create your repo
 
-**GitHub:** click **Use this template** and create a new repository.
+**GitHub:** click **Use this template** → create a new repository.
 
 **Local clone:**
 
@@ -13,41 +13,34 @@ git clone https://github.com/your-org/your-project.git
 cd your-project
 ```
 
-Rename references to match your project if you want (project name in docs, Jupyter kernel name, etc.). The template uses generic placeholders — nothing hard-codes a specific product name in code yet.
-
 ## 2. Define the product
 
 Open [project-brief.md](project-brief.md) and fill in every section:
 
-- Who are the users?
-- What problem does the chatbot solve?
-- What documents go in the corpus?
-- What does "trust" mean for your domain?
-- What is explicitly out of scope?
+- Pick a **project type** (RAG chat, agent, extraction API, etc.)
+- Define users, problem, and acceptance criteria
+- Check which technical pieces you need (frontend, auth, pgvector, etc.)
 
-This brief is the source of truth for product decisions. Point AI coding agents at it when building features.
+This brief is the source of truth. Point AI coding agents at it before asking them to build features.
 
-## 3. Read the architecture
+## 3. Read the rules
 
-Skim [architecture.md](architecture.md) before writing code. It describes:
+Before writing code, agents (and humans) should read:
 
-- The chat path (browser → FastAPI → Supabase → OpenAI)
-- The ingestion path (corpus → chunk → embed → store)
-- Hybrid retrieval with RRF fusion
-- Grounding and citation policy
-- The recommended module layout for backend and frontend
-
-You do not need to implement everything at once. Follow the implementation sequence at the bottom of the architecture doc.
+1. [AGENTS.md](../AGENTS.md) — where code goes, must/must-not rules
+2. [architecture.md](architecture.md) — system boundaries
+3. [backend/AGENTS.md](../backend/AGENTS.md) or [frontend/AGENTS.md](../frontend/AGENTS.md) — depending on what you're building
+4. Matching [pattern doc](patterns/) if your project type has one
 
 ## 4. Set up Supabase
 
-Follow [guides/supabase-setup.md](guides/supabase-setup.md):
+Follow [guides/supabase-setup.md](guides/supabase-setup.md) if the project needs auth or Postgres:
 
 1. Create a Supabase project.
-2. Collect Project URL, anon key, service role key, and direct database URL.
+2. Collect URL, anon key, service role key, and direct database URL.
 3. Configure email auth.
 
-Do not create app tables manually in the dashboard — Alembic migrations own the schema.
+Skip Supabase entirely for a stateless API-only prototype (use env vars only).
 
 ## 5. Scaffold the backend
 
@@ -55,13 +48,33 @@ From `backend/`:
 
 ```bash
 uv sync
-uv add fastapi uvicorn pydantic pydantic-settings httpx structlog openai supabase pydantic-ai sqlalchemy alembic "psycopg[binary]" pgvector
+uv add fastapi uvicorn pydantic pydantic-settings httpx structlog openai
 uv add --dev pytest ruff
 ```
 
-Copy `.env.example` to `.env` and fill in your Supabase and OpenAI credentials.
+Add more deps as needed:
 
-Initialize Alembic, add SQLAlchemy models, and run migrations. See [guides/backend-setup.md](guides/backend-setup.md) for details.
+```bash
+# Auth + database
+uv add supabase sqlalchemy alembic "psycopg[binary]"
+
+# Agents
+uv add pydantic-ai
+
+# Semantic search
+uv add pgvector
+```
+
+Copy `.env.example` to `.env` and fill in credentials.
+
+Create the app skeleton:
+
+```text
+backend/app/
+├── main.py       # FastAPI app + health route
+├── config.py     # settings
+└── api/          # route handlers
+```
 
 Start the API:
 
@@ -69,7 +82,11 @@ Start the API:
 uv run uvicorn app.main:app --reload
 ```
 
-## 6. Scaffold the frontend
+See [guides/backend-setup.md](guides/backend-setup.md) for migrations, imports, and Jupyter setup.
+
+## 6. Scaffold the frontend (if needed)
+
+Skip this step for API-only MVPs.
 
 From `frontend/`:
 
@@ -83,46 +100,44 @@ pnpm dlx shadcn@latest init
 
 Copy `.env.example` to `.env` and fill in `VITE_API_BASE_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`.
 
-Start the dev server:
-
 ```bash
 pnpm dev
 ```
 
-See [guides/frontend-setup.md](guides/frontend-setup.md) for the full init commands and checks.
+See [guides/frontend-setup.md](guides/frontend-setup.md) for checks.
 
-## 7. Prepare your corpus
-
-Put source documents in `data/` for local development:
+## 7. Prepare local data (if needed)
 
 ```text
 data/
-├── README.md
-├── corpus/           # your documents (gitignored if large)
-└── examples/         # optional reference downloaders
+├── corpus/       # your source files
+└── examples/     # optional sample downloaders
 ```
 
-If you need sample data quickly, the template includes an optional SEC EDGAR downloader in `data/examples/sec-edgar/`. Edit the params at the top of the script, then run:
+Drop files into `data/corpus/` or use the optional SEC EDGAR example:
 
 ```bash
 uv run data/examples/sec-edgar/download.py
 ```
 
-For your own sources, write a similar script or drop files directly into `data/corpus/`.
+Write project-specific download/seed scripts in `data/examples/` or `backend/scripts/`.
 
-## 8. Build in order
+## 8. Build the core feature
 
-Follow the implementation sequence in [architecture.md](architecture.md):
+Order depends on project type. General sequence:
 
-1. Auth (Supabase in frontend, JWT verification in backend)
-2. Chat streaming endpoint (stub first, then real LLM)
-3. Ingestion pipeline (parse → chunk → embed → store)
-4. Hybrid retrieval
-5. Grounded answer generation with citations
-6. Citation UI in the frontend
+1. Config + health check
+2. Auth (if user-facing)
+3. Core domain logic in `backend/app/<domain>/`
+4. API routes in `backend/app/api/`
+5. DB models + migrations (if persisting)
+6. Frontend pages (if UI)
+7. Batch scripts (if offline processing)
 
-Commit early, keep the fast test suite green, and expand scope only when each layer works.
+For RAG chat specifically, follow [patterns/grounded-rag-chat.md](patterns/grounded-rag-chat.md).
 
 ## 9. Deploy
 
-Deploy two Railway services (frontend static build + backend Uvicorn) and point env vars at your hosted Supabase project. Details depend on your hosting choices — the architecture doc describes the target shape.
+Default: two Railway services (frontend static build + backend Uvicorn) + hosted Supabase. API-only projects deploy backend only.
+
+Point production env vars at hosted Supabase and OpenAI. See [architecture.md](architecture.md#deployment-railway).

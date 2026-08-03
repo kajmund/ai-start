@@ -1,76 +1,102 @@
 # Project brief — [Your Project Name]
 
-Fill in this template before building. Delete the placeholder text and guidance notes as you go.
+Fill in this template before building. Delete placeholder text as you go. Coding agents read this file to decide **what** to build — [AGENTS.md](../AGENTS.md) tells them **how** and **where**.
+
+## Project type
+
+Pick one (delete the others):
+
+- [ ] **Grounded RAG chat** — document Q&A with citations ([pattern](../patterns/grounded-rag-chat.md))
+- [ ] **AI agent** — multi-step agent with tools
+- [ ] **Classification / extraction API** — structured output from inputs
+- [ ] **Batch processor** — ingest and process documents offline
+- [ ] **Internal dashboard** — AI-powered analytics or workflow UI
+- [ ] **API-only MVP** — no frontend initially
+- [ ] **Other:** [describe]
 
 ## The product
 
 **[Your Project Name]** is [one sentence: what it is and who it's for].
 
-Example: *An internal chatbot that lets support agents query product documentation and get sourced, citable answers.*
+Examples:
+
+- *An internal chatbot that lets support agents query product docs with cited answers.*
+- *An API that extracts invoice fields from uploaded PDFs.*
+- *A dashboard where analysts run AI classification on customer feedback.*
 
 ## The users
 
 - **Primary users:** [role, count, context]
-- **How they work today:** [current workflow without the chatbot]
+- **How they work today:** [current workflow without this product]
 - **What success looks like:** [measurable outcome]
 
 ## The problem
 
-[Describe the pain point in plain language. What takes too long? What breaks trust? What scales poorly?]
-
-The work is:
-
-- [pain 1]
-- [pain 2]
-- [pain 3]
+[Describe the pain point. What takes too long? What breaks trust? What scales poorly?]
 
 ## What we're building
 
-A [internal / customer-facing] chatbot where users can:
+[Describe the core capability — adapt to your project type, don't assume chat.]
 
-- Ask questions in plain English about [your corpus]
-- Get sourced answers that cite [specific source + location — page, section, timestamp, etc.]
-- Trust the answer enough to [downstream action]
-- Use it from [browser / Slack / etc.], logged in with [auth method]
-- See their own past conversations
+Examples by type:
 
-## Example questions
+**RAG chat:** Users ask questions in plain English, get sourced answers with citations.
 
-List 5–10 real questions your users would ask. These become acceptance criteria for retrieval and grounding.
+**Extraction API:** Users upload documents, receive structured JSON fields.
 
-1. [Example question 1]
-2. [Example question 2]
-3. [Example question 3]
-4. [Example question 4]
-5. [Example question 5]
+**Agent:** Users describe a goal, the agent uses tools to complete multi-step tasks.
 
-## What "trust" means here
+**Batch:** Operators trigger jobs that process a corpus and store results in Postgres.
 
-Define the non-negotiables for your domain:
+## Example inputs / acceptance criteria
 
-- **Never invent facts.** If the answer isn't in the corpus, say so.
-- **Always cite.** Every factual claim links to a source.
-- **Show the underlying passage** so the user can verify in one click.
-- **[Domain-specific rule]** e.g. no medical advice, no legal conclusions, no investment recommendations.
+List 5–10 real inputs or scenarios. These become test cases and acceptance criteria.
 
-A wrong but confident answer is worse than no answer.
+1. [Example 1]
+2. [Example 2]
+3. [Example 3]
+4. [Example 4]
+5. [Example 5]
+
+## Quality bar
+
+Define non-negotiables for your domain:
+
+- **Accuracy:** [e.g. never invent facts / maintain >90% field accuracy]
+- **Transparency:** [e.g. always cite sources / show confidence scores]
+- **Safety:** [e.g. no medical advice / no PII in logs]
+- **Failure mode:** [e.g. say "insufficient data" rather than guess]
+
+A wrong but confident answer is worse than no answer (for most AI products).
+
+## Technical scope
+
+Check what this project needs:
+
+- [ ] Frontend (React SPA)
+- [ ] Supabase Auth (email)
+- [ ] Postgres tables + Alembic migrations
+- [ ] pgvector / semantic search
+- [ ] Streaming responses (chat)
+- [ ] Batch scripts (`backend/scripts/`)
+- [ ] File upload handling
 
 ## Constraints
 
-- **Corpus:** [document types, sources, date range, size]
+- **Data sources:** [document types, APIs, volume]
 - **Users:** [count, auth method]
-- **Hosting:** [cloud footprint, team infra capacity]
+- **Hosting:** [Railway / other, budget]
 - **Latency:** [acceptable response time]
-- **Budget:** [OpenAI / hosting limits if relevant]
+- **Model budget:** [OpenAI spend limits if relevant]
 
 ## Out of scope (explicitly)
 
-- [Feature or integration you're not building]
-- [Feature or integration you're not building]
-- [Feature or integration you're not building]
+- [Feature you're not building]
+- [Feature you're not building]
+- [Feature you're not building]
 
 ## Definition of done
 
 [How you'll know the MVP works — pilot criteria, metrics, or user feedback threshold.]
 
-Example: *Five users try it for a week and report it saves at least 2 hours each. If yes, roll out to the full team.*
+Example: *Five users test for a week; 4/5 say it saves meaningful time. Roll out if yes.*

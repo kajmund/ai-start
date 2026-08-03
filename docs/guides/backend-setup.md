@@ -1,35 +1,59 @@
 # Backend setup
 
-This project uses a separate Python + FastAPI backend because the server is responsible for AI and document-processing work, not just basic web CRUD. Python gives us the strongest ecosystem for ingestion, chunking, embeddings, retrieval, evaluation, and LLM workflows. Keeping this logic behind a dedicated API also keeps the frontend focused on the user experience while the backend owns data access, orchestration, and grounding.
+Python + FastAPI backend for all AI logic, orchestration, and server-side data access. Read [../../AGENTS.md](../../AGENTS.md) and [../AGENTS.md](../AGENTS.md) for layout rules.
 
 ## Init (from empty `backend/`)
+
+Core dependencies:
 
 ```bash
 cd backend
 uv sync
-uv add fastapi uvicorn pydantic pydantic-settings httpx structlog openai supabase pydantic-ai sqlalchemy alembic "psycopg[binary]" pgvector
+uv add fastapi uvicorn pydantic pydantic-settings httpx structlog openai
 uv add --dev pytest ruff
+```
+
+Add when your project needs them:
+
+```bash
+# Supabase auth + DB
+uv add supabase sqlalchemy alembic "psycopg[binary]"
+
+# Typed LLM agents
+uv add pydantic-ai
+
+# Semantic search
+uv add pgvector
+```
+
+Create the app skeleton under `backend/app/`:
+
+```text
+app/
+├── main.py       # FastAPI entrypoint
+├── config.py     # Pydantic settings
+└── api/          # route handlers
 ```
 
 ## Database migrations
 
-Alembic owns database schema changes for this project. SQLAlchemy models describe the app tables, and Alembic migrations apply those changes to Supabase Postgres.
+When using Postgres, Alembic owns schema changes.
 
-Initialize Alembic once from `backend/`:
+Initialize once from `backend/`:
 
 ```bash
 uv run alembic init alembic
 ```
 
-Configure `alembic/env.py` to import the app's SQLAlchemy metadata and read the direct database URL from `app.config.settings`. Use the direct/session Supabase database connection, not the transaction pooler URL, for migrations.
+Configure `alembic/env.py` to import SQLAlchemy metadata from `app.database.models` and read `DATABASE_URL` from `app.config.settings`. Use the **direct** Supabase connection URL.
 
-Create a migration after changing SQLAlchemy models:
+Create a migration after model changes:
 
 ```bash
-uv run alembic revision --autogenerate -m "add document tables"
+uv run alembic revision --autogenerate -m "add tables"
 ```
 
-Always review the generated migration. Add explicit operations for Supabase/Postgres features that autogenerate cannot reliably infer:
+Review every generated migration. Add explicit ops for features autogenerate misses:
 
 - `create extension if not exists vector`
 - `vector(1536)` columns
@@ -37,7 +61,7 @@ Always review the generated migration. Add explicit operations for Supabase/Post
 - HNSW and GIN indexes
 - RLS enablement and policies
 
-Apply migrations:
+Apply:
 
 ```bash
 uv run alembic upgrade head
@@ -48,47 +72,52 @@ uv run alembic upgrade head
 ```bash
 cd backend
 uv sync
-uv run alembic upgrade head
+uv run alembic upgrade head   # if using Postgres
 uv run uvicorn app.main:app --reload
 ```
 
 ## Imports (`from app...`)
 
-`backend/app` is installed as an editable package by `uv sync`, so `from app...` imports work from uvicorn, direct Python execution, tests, and Jupyter kernels that use the backend venv.
-
-The `[build-system]` and `[tool.hatch.build.targets.wheel]` sections in `backend/pyproject.toml` tell uv how to install the local `app/` package. Without that package install, imports depend on the current working directory or a manually configured `PYTHONPATH`, which is fragile in notebooks and IDE run buttons.
-
-Preferred API server command:
+`backend/app` is installed as an editable package by `uv sync`. The `[build-system]` section in `pyproject.toml` enables this.
 
 ```bash
 cd backend
 uv run uvicorn app.main:app --reload
 ```
 
-Direct file execution also works:
+Direct execution also works:
 
 ```bash
-cd backend
 uv run python app/main.py
 ```
 
-For Jupyter, install and select the backend kernel:
+## Jupyter
 
 ```bash
 cd backend
 uv run python -m ipykernel install --user --name ai-start-backend --display-name "AI Start Backend"
 ```
 
-Then notebooks can import backend modules:
-
 ```python
 from app.config import settings
 ```
 
-## Sample corpus data
+## Scripts
 
-For a quick sample corpus, see the optional SEC EDGAR downloader in `data/examples/sec-edgar/`. From the repo root:
+Batch and one-off jobs live in `backend/scripts/` — not in `app/`:
+
+```bash
+uv run python scripts/ingest_corpus.py
+```
+
+Scripts may import from `app.*`; `app/` must not import from `scripts/`.
+
+## Sample data
+
+Optional SEC EDGAR downloader for RAG experiments: `data/examples/sec-edgar/download.py`
 
 ```bash
 uv run data/examples/sec-edgar/download.py
 ```
+
+Project-specific ingest scripts belong in `backend/scripts/`.
